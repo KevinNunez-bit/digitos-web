@@ -1,0 +1,5 @@
+# Entorno de Python (pesa mucho y no se necesita para la página)
+entrenamiento/.venv/
+__pycache__/
+.idea/
+pyproject.toml

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Dígitos: CNN vs Regular</title>
+  <link rel="icon" type="image/png" href="logo_unison.png">
+  <style>
+    :root {
+      --fondo: #f4f5f7;
+      --tarjeta: #ffffff;
+      --texto: #1c1f24;
+      --suave: #6b7280;
+      --borde: #e2e5ea;
+      --cnn: #2563eb;
+      --texto-cnn: #ffffff;
+      --regular: #d97706;
+      --ok: #16a34a;
+      --mal: #dc2626;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fondo: #111317;
+        --tarjeta: #1b1e24;
+        --texto: #eceef1;
+        --suave: #9aa1ac;
+        --borde: #2c3038;
+        --cnn: #60a5fa;
+        --texto-cnn: #0b1220;
+        --regular: #fbbf24;
+        --ok: #4ade80;
+        --mal: #f87171;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--fondo);
+      color: var(--texto);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    main { max-width: 760px; margin: 0 auto; padding: 16px; }
+    .encabezado { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .encabezado img { width: 110px; height: auto; flex-shrink: 0; }
+    @media (max-width: 420px) { .encabezado img { width: 90px; } }
+    .escuela { font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--suave); margin: 0; }
+    h1 { font-size: 1.35rem; margin: 2px 0 2px; }
+    .sub { color: var(--suave); font-size: .9rem; margin: 0; }
+    .tarjeta {
+      background: var(--tarjeta);
+      border: 1px solid var(--borde);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    #zona-dibujo { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+    #lienzo {
+      width: 280px; height: 280px;
+      background: #000;
+      border-radius: 10px;
+      touch-action: none;
+      cursor: crosshair;
+      display: block;
+    }
+    .vista-red { text-align: center; font-size: .8rem; color: var(--suave); }
+    #vista28 {
+      width: 84px; height: 84px;
+      image-rendering: pixelated;
+      background: #000;
+      border-radius: 6px;
+      display: block;
+      margin: 4px auto 0;
+    }
+    .botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    button {
+      font: inherit; font-weight: 600;
+      border: 0; border-radius: 10px;
+      padding: 14px 10px;
+      cursor: pointer;
+      color: #fff;
+    }
+    button:disabled { opacity: .4; cursor: default; }
+    #btn-cnn { background: var(--cnn); color: var(--texto-cnn); }
+    #btn-regular { background: var(--regular); color: #1c1f24; }
+    #btn-borrar {
+      grid-column: 1 / -1;
+      background: transparent; color: var(--texto);
+      border: 1px solid var(--borde);
+    }
+    #estado { font-size: .85rem; color: var(--suave); margin-top: 10px; text-align: center; min-height: 1.2em; }
+    #resultados { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 560px) { #resultados { grid-template-columns: 1fr; } }
+    .modelo { border-top: 4px solid var(--color); }
+    .modelo.oculto { display: none; }
+    .modelo h2 { font-size: 1rem; margin: 0; color: var(--color); }
+    .modelo .detalle { font-size: .78rem; color: var(--suave); margin: 2px 0 8px; }
+    .prediccion { display: flex; align-items: baseline; gap: 10px; }
+    .digito { font-size: 3.4rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+    .confianza { color: var(--suave); }
+    .barras { margin-top: 10px; display: grid; gap: 4px; }
+    .barra { display: grid; grid-template-columns: 14px 1fr 46px; gap: 8px; align-items: center; font-size: .8rem; font-variant-numeric: tabular-nums; }
+    .barra .pista { height: 10px; background: var(--borde); border-radius: 5px; overflow: hidden; }
+    .barra .relleno { height: 100%; width: 0; background: var(--color); border-radius: 5px; transition: width .3s; }
+    .barra .pct { text-align: right; color: var(--suave); }
+    .barra.max { font-weight: 700; }
+    .barra.max .pct { color: var(--texto); }
+    #veredicto { text-align: center; font-weight: 700; font-size: 1.05rem; padding: 12px; }
+    #veredicto.oculto { display: none; }
+    #veredicto.coinciden { color: var(--ok); }
+    #veredicto.difieren { color: var(--mal); }
+  </style>
+</head>
+<body>
+<main>
+  <header class="encabezado">
+    <img src="logo_unison.png" alt="Escudo de la Universidad de Sonora">
+    <div>
+      <p class="escuela">Universidad de Sonora · Redes Neuronales</p>
+      <h1>Reconocedor de dígitos ✍️</h1>
+      <p class="sub">Dibuja un número del 0 al 9 y compara la red convolucional (CNN) contra la red regular (densa).</p>
+    </div>
+  </header>
+
+  <section class="tarjeta">
+    <div id="zona-dibujo">
+      <canvas id="lienzo"></canvas>
+      <div class="vista-red">
+        Lo que ve la red<br>(28 × 28)
+        <canvas id="vista28" width="28" height="28"></canvas>
+      </div>
+    </div>
+    <div class="botones">
+      <button id="btn-cnn" disabled>Reconocer con CNN</button>
+      <button id="btn-regular" disabled>Comparar con red regular</button>
+      <button id="btn-borrar">Borrar</button>
+    </div>
+    <div id="estado">Cargando modelos…</div>
+  </section>
+
+  <div id="veredicto" class="tarjeta oculto"></div>
+
+  <section id="resultados">
+    <div class="tarjeta modelo oculto" id="res-cnn" style="--color: var(--cnn)"></div>
+    <div class="tarjeta modelo oculto" id="res-regular" style="--color: var(--regular)"></div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
+<script>
+  const modelos = { cnn: null, regular: null };
+  const NOMBRES = { cnn: "Red convolucional (CNN)", regular: "Red regular (densa)" };
+  let entrada = null;      //Tensor [1,28,28,1] del último dibujo
+  let resultados = {};     //Predicción de cada modelo para el dibujo actual
+
+  const lienzo = document.getElementById("lienzo");
+  const ctx = lienzo.getContext("2d");
+  const vista28 = document.getElementById("vista28");
+  const btnCnn = document.getElementById("btn-cnn");
+  const btnRegular = document.getElementById("btn-regular");
+  const estado = document.getElementById("estado");
+
+  // ---------- Lienzo para dibujar (dedo o mouse) ----------
+  const TAMANO = 280;
+  const escala = window.devicePixelRatio || 1;
+  lienzo.width = TAMANO * escala;
+  lienzo.height = TAMANO * escala;
+  ctx.scale(escala, escala);
+
+  function limpiarLienzo() {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, TAMANO, TAMANO);
+    vista28.getContext("2d").clearRect(0, 0, 28, 28);
+  }
+  limpiarLienzo();
+
+  let dibujando = false;
+  let ultimo = null;
+  function punto(e) {
+    const r = lienzo.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * TAMANO / r.width, y: (e.clientY - r.top) * TAMANO / r.height };
+  }
+  lienzo.addEventListener("pointerdown", e => {
+    dibujando = true;
+    ultimo = punto(e);
+    lienzo.setPointerCapture(e.pointerId);
+    trazo(ultimo, ultimo);
+  });
+  lienzo.addEventListener("pointermove", e => {
+    if (!dibujando) return;
+    const p = punto(e);
+    trazo(ultimo, p);
+    ultimo = p;
+  });
+  ["pointerup", "pointercancel"].forEach(ev => lienzo.addEventListener(ev, () => {
+    if (dibujando) nuevoDibujo();
+    dibujando = false;
+  }));
+
+  function trazo(a, b) {
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 22;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+
+  //Cada vez que cambia el dibujo, las predicciones anteriores ya no valen
+  function nuevoDibujo() {
+    resultados = {};
+    btnRegular.disabled = true;
+    ocultarResultados();
+    estado.textContent = "Listo. Presiona «Reconocer con CNN».";
+  }
+
+  // ---------- Preprocesamiento estilo MNIST ----------
+  // En MNIST cada dígito está escalado a una caja de 20x20 y centrado
+  // (por su centro de masa) en una imagen de 28x28, blanco sobre negro.
+  function preprocesar() {
+    const w = lienzo.width, h = lienzo.height;
+    const px = ctx.getImageData(0, 0, w, h).data;
+
+    //1) Caja que encierra el trazo
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (px[(y * w + x) * 4] > 30) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return null; //No hay nada dibujado
+
+    //2) Escalar el lado más largo a 20 px (en pasos para que no se pixelee)
+    const anchoCaja = maxX - minX + 1, altoCaja = maxY - minY + 1;
+    const factor = 20 / Math.max(anchoCaja, altoCaja);
+    const anchoFinal = Math.max(1, Math.round(anchoCaja * factor));
+    const altoFinal = Math.max(1, Math.round(altoCaja * factor));
+
+    let fuente = document.createElement("canvas");
+    fuente.width = anchoCaja; fuente.height = altoCaja;
+    fuente.getContext("2d").drawImage(lienzo, minX, minY, anchoCaja, altoCaja, 0, 0, anchoCaja, altoCaja);
+    while (fuente.width / 2 > anchoFinal && fuente.height / 2 > altoFinal) {
+      const mitad = document.createElement("canvas");
+      mitad.width = Math.round(fuente.width / 2); mitad.height = Math.round(fuente.height / 2);
+      mitad.getContext("2d").drawImage(fuente, 0, 0, mitad.width, mitad.height);
+      fuente = mitad;
+    }
+    const chico = document.createElement("canvas");
+    chico.width = anchoFinal; chico.height = altoFinal;
+    const ctxChico = chico.getContext("2d");
+    ctxChico.imageSmoothingQuality = "high";
+    ctxChico.drawImage(fuente, 0, 0, anchoFinal, altoFinal);
+
+    //3) Centro de masa del dígito escalado
+    const pc = ctxChico.getImageData(0, 0, anchoFinal, altoFinal).data;
+    let suma = 0, sx = 0, sy = 0;
+    for (let y = 0; y < altoFinal; y++) {
+      for (let x = 0; x < anchoFinal; x++) {
+        const v = pc[(y * anchoFinal + x) * 4];
+        suma += v; sx += v * x; sy += v * y;
+      }
+    }
+    const cx = sx / suma, cy = sy / suma;
+
+    //4) Pegarlo en 28x28 con el centro de masa en (14, 14)
+    const c28 = vista28.getContext("2d");
+    c28.fillStyle = "#000";
+    c28.fillRect(0, 0, 28, 28);
+    c28.drawImage(chico, Math.round(14 - cx), Math.round(14 - cy));
+
+    //5) Pixeles 0-255 -> 0-1 (igual que normalizar() en Python)
+    const p28 = c28.getImageData(0, 0, 28, 28).data;
+    const valores = new Float32Array(28 * 28);
+    for (let i = 0; i < valores.length; i++) valores[i] = p28[i * 4] / 255;
+    return tf.tensor4d(valores, [1, 28, 28, 1]);
+  }
+
+  // ---------- Predicción y resultados ----------
+  function predecir(nombre) {
+    const inicio = performance.now();
+    const probs = Array.from(modelos[nombre].predict(entrada).dataSync());
+    const ms = performance.now() - inicio;
+    const digito = probs.indexOf(Math.max(...probs));
+    resultados[nombre] = { digito, probs, ms };
+    mostrar(nombre);
+  }
+
+  function mostrar(nombre) {
+    const { digito, probs, ms } = resultados[nombre];
+    const caja = document.getElementById("res-" + nombre);
+    const barras = probs.map((p, i) => `
+      <div class="barra ${i === digito ? "max" : ""}">
+        <span>${i}</span>
+        <div class="pista"><div class="relleno" data-w="${(p * 100).toFixed(1)}"></div></div>
+        <span class="pct">${(p * 100).toFixed(1)}%</span>
+      </div>`).join("");
+    caja.innerHTML = `
+      <h2>${NOMBRES[nombre]}</h2>
+      <div class="detalle">${modelos[nombre].countParams().toLocaleString("es-MX")} parámetros · ${ms.toFixed(1)} ms</div>
+      <div class="prediccion">
+        <span class="digito">${digito}</span>
+        <span class="confianza">${(probs[digito] * 100).toFixed(1)}% de confianza</span>
+      </div>
+      <div class="barras">${barras}</div>`;
+    caja.classList.remove("oculto");
+    requestAnimationFrame(() => caja.querySelectorAll(".relleno").forEach(r => r.style.width = r.dataset.w + "%"));
+    actualizarVeredicto();
+  }
+
+  function actualizarVeredicto() {
+    const v = document.getElementById("veredicto");
+    if (!resultados.cnn || !resultados.regular) { v.className = "tarjeta oculto"; return; }
+    const iguales = resultados.cnn.digito === resultados.regular.digito;
+    v.className = "tarjeta " + (iguales ? "coinciden" : "difieren");
+    v.textContent = iguales
+      ? `✅ Ambas redes dicen que es un ${resultados.cnn.digito}`
+      : `⚠️ No coinciden: la CNN dice ${resultados.cnn.digito} y la regular dice ${resultados.regular.digito}`;
+  }
+
+  function ocultarResultados() {
+    document.getElementById("res-cnn").classList.add("oculto");
+    document.getElementById("res-regular").classList.add("oculto");
+    document.getElementById("veredicto").className = "tarjeta oculto";
+  }
+
+  btnCnn.addEventListener("click", () => {
+    if (entrada) entrada.dispose();
+    entrada = preprocesar();
+    if (!entrada) { estado.textContent = "Primero dibuja un número 🙂"; return; }
+    resultados = {};
+    ocultarResultados();
+    predecir("cnn");
+    btnRegular.disabled = false;
+    estado.textContent = "¿Y la red regular? Presiona «Comparar».";
+  });
+
+  btnRegular.addEventListener("click", () => {
+    if (!entrada) return;
+    predecir("regular");
+    estado.textContent = "Dibuja otro número para probar de nuevo.";
+  });
+
+  document.getElementById("btn-borrar").addEventListener("click", () => {
+    limpiarLienzo();
+    nuevoDibujo();
+    estado.textContent = "Dibuja un número del 0 al 9.";
+  });
+
+  // ---------- Cargar los dos modelos exportados desde Colab ----------
+  (async () => {
+    try {
+      [modelos.cnn, modelos.regular] = await Promise.all([
+        tf.loadLayersModel("modelos/cnn/model.json"),
+        tf.loadLayersModel("modelos/regular/model.json"),
+      ]);
+      //Primera predicción "en vacío" para que la primera de verdad no sea lenta
+      tf.tidy(() => {
+        const cero = tf.zeros([1, 28, 28, 1]);
+        modelos.cnn.predict(cero); modelos.regular.predict(cero);
+      });
+      btnCnn.disabled = false;
+      estado.textContent = "Modelos listos. Dibuja un número del 0 al 9.";
+    } catch (err) {
+      console.error(err);
+      estado.textContent = "No se pudieron cargar los modelos. ¿Están en modelos/cnn y modelos/regular? ¿Abriste la página con un servidor (python -m http.server)?";
+    }
+  })();
+</script>
+</body>
+</html>
